@@ -5,12 +5,12 @@ DocMeta.setdocmeta!(LayoutPointers, :DocTestSetup, :(using LayoutPointers); recu
 
 makedocs(;
     modules=[LayoutPointers],
-    authors="chriselrod <elrodc@gmail.com> and contributors",
-    repo="https://github.com/chriselrod/LayoutPointers.jl/blob/{commit}{path}#{line}",
+    authors="JuliaSIMD <elrodc@gmail.com> and contributors",
+    repo="https://github.com/JuliaSIMD/LayoutPointers.jl/blob/{commit}{path}#{line}",
     sitename="LayoutPointers.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://chriselrod.github.io/LayoutPointers.jl",
+        canonical="https://JuliaSIMD.github.io/LayoutPointers.jl",
         assets=String[],
     ),
     pages=[
@@ -19,5 +19,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/chriselrod/LayoutPointers.jl",
+    repo="github.com/JuliaSIMD/LayoutPointers.jl",
 )

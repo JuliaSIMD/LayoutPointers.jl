@@ -4,7 +4,7 @@ CurrentModule = LayoutPointers
 
 # LayoutPointers
 
-Documentation for [LayoutPointers](https://github.com/chriselrod/LayoutPointers.jl).
+Documentation for [LayoutPointers](https://github.com/JuliaSIMD/LayoutPointers.jl).
 
 ```@index
 ```
