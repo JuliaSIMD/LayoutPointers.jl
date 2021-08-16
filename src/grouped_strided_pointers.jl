@@ -23,12 +23,12 @@ end
     (p, pt...), (r, rt...)
 end
 
-struct DensePointerWrapper{D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} <: AbstractStridedPointer{T,N,C,B,R,X,O}
+struct DensePointerWrapper{D,T,N,R,C,B,X,O,O1,P<:AbstractStridedPointer{T,N,R,C,B,X,O,O1}} <: AbstractStridedPointer{T,N,R,C,B,X,O,O1}
   p::P
 end
 @inline val_dense_dims(::DensePointerWrapper{D}) where {D} = Val{D}()
 @inline Base.pointer(A::DensePointerWrapper) = pointer(getfield(A,:p))
-@inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} = DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
+@inline DensePointerWrapper{D}(sp::P) where {D,T,N,R,C,B,X,O,O1,P<:AbstractStridedPointer{T,N,R,C,B,X,O,O1}} = DensePointerWrapper{D,T,N,R,C,B,X,O,O1,P}(sp)
 @inline ArrayInterface.offsets(A::DensePointerWrapper) = offsets(getfield(A,:p))
 @inline bytestrides(A::DensePointerWrapper) = bytestrides(getfield(A,:p))
 # for f ∈ (:bytestrides,:offsets)
