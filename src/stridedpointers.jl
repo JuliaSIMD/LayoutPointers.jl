@@ -56,16 +56,18 @@ end
 @inline stridedpointer(p::Ptr{T}, si::StrideIndex{N,R,C,X,O,O1}, ::StaticInt{B}) where {T,N,R,C,B,X,O,O1} = StridedPointer{T,N,R,C,B,X,O,O1}(p, si)
 @inline stridedpointer(p::Ptr{T}, si::StrideIndex{N,R,C,X,O,O1}) where {T,N,R,C,X,O,O1} = StridedPointer{T,N,R,C,0,R,O,O1}(p, si)
 
+@inline bytestrideindex(A::AbstractArray{T}) where {T} = mulstrides(T, StrideIndex(A))
+
 @inline function mulstrides(::Type{T}, si::StrideIndex{N,R,C,X,O,O1}) where {N,R,C,X,O,O1,T}
   StrideIndex{N,R,C}(mulsizeof(T, si.strides), si.offsets, si.offset1)
 end
-@inline function stridedpointer(A::AbstractArray{T}) where {T}
+@inline function stridedpointer(A::AbstractArray)
   p, r = memory_reference(A)
-  stridedpointer(p, mulstrides(T, StrideIndex(A)), ArrayInterface.contiguous_batch_size(A))
+  stridedpointer(p, bytestrideindex(A), ArrayInterface.contiguous_batch_size(A))
 end
-@inline function stridedpointer_preserve(A::AbstractArray{T}) where {T}
+@inline function stridedpointer_preserve(A::AbstractArray)
   p, r = memory_reference(A)
-  stridedpointer(p, mulstrides(T, StrideIndex(A)), ArrayInterface.contiguous_batch_size(A)), r
+  stridedpointer(p, bytestrideindex(A), ArrayInterface.contiguous_batch_size(A)), r
 end
 @inline val_stride_rank(::AbstractStridedPointer{T,N,R}) where {T,N,R} = Val{R}()
 @generated val_dense_dims(::AbstractStridedPointer{T,N}) where {T,N} = Val{ntuple(==(0), Val(N))}()
@@ -82,7 +84,7 @@ end
 @inline function zero_offsets(si::StrideIndex{N,R,C}) where {N,R,C}
   StrideIndex{N,R,C}(getfield(si,:strides), zerotuple(Val(N)), Zero())
 end
-@inline zero_offsets(sptr::StridedPointer{T,N,C,B}) where {T,N,C,B} = StridedPointer{B}(getfield(sptr, :ptr), zero_offsets(getfield(sptr, :si)))
+@inline zero_offsets(sptr::AbstractStridedPointer) = stridedpointer(pointer(sptr), zero_offsets(StrideIndex(sptr)), contiguous_batch_size(sptr))
 @inline zstridedpointer(A) = zero_offsets(stridedpointer(A))
 @inline function zstridedpointer_preserve(A::AbstractArray{T,N}) where {T,N}
   strd = mulsizeof(T, ArrayInterface.strides(A))
@@ -108,25 +110,31 @@ end
 @inline stridedpointer(p::Ptr{Bit}, si::StrideIndex{N,R,C,X,O,O1}, ::StaticInt{B}) where {N,R,C,B,X,O,O1} = StridedBitPointer{N,R,C,B,X,O,O1}(p, si)
 @inline stridedpointer(p::Ptr{Bit}, si::StrideIndex{N,R,C,X,O,O1}) where {N,R,C,X,O,O1} = StridedBitPointer{N,R,C,0,R,O,O1}(p, si)
 
-@inline bytestrides(A::Union{StridedPointer,StridedBitPointer}) = getfield(getfield(A, :si), :strides)
-@inline Base.strides(ptr::Union{StridedPointer,StridedBitPointer}) = getfield(getfield(A, :si), :strides)
-@inline ArrayInterface.strides(ptr::Union{StridedPointer,StridedBitPointer}) = getfield(getfield(A, :si), :strides)
-@inline ArrayInterface.offsets(ptr::Union{StridedPointer,StridedBitPointer}) = getfield(getfield(A, :si), :offsets)
-@inline ArrayInterface.contiguous_axis_indicator(ptr::AbstractStridedPointer{T,N,R,C}) where {T,N,R,C} = contiguous_axis_indicator(StaticInt{C}(), Val{N}())
-
 @inline Base.pointer(p::Union{StridedPointer,StridedBitPointer}) = getfield(p, :p)
 @inline ArrayInterface.StrideIndex(sptr::Union{StridedPointer,StridedBitPointer}) = getfield(sptr,:si)
-@inline function similar_with_offset(sptr::AbstractStridedPointer{T,N}, ptr::Ptr, offset::Tuple{Vararg{Integer,N}}) where {T,N}
-  si = StrideIndex(strides(sptr), offset, StrideIndex(sptr).offset1)
+@inline bytestrideindex(sptr::AbstractStridedPointer) = StrideIndex(sptr)
+
+@inline bytestrides(si::StrideIndex) = map(Base.Fix2(*,StaticInt{8}()), si.strides)
+@inline bytestrides(ptr::AbstractStridedPointer) = (StrideIndex(ptr)).strides
+@inline Base.strides(ptr::AbstractStridedPointer) = (StrideIndex(ptr)).strides
+@inline ArrayInterface.strides(ptr::AbstractStridedPointer) = strides(StrideIndex(ptr))
+@inline ArrayInterface.offsets(ptr::AbstractStridedPointer) = offsets(StrideIndex(ptr))
+@inline ArrayInterface.offset1(ptr::AbstractStridedPointer) = offset1(StrideIndex(ptr))
+@inline ArrayInterface.contiguous_axis_indicator(ptr::AbstractStridedPointer{T,N,R,C}) where {T,N,R,C} = contiguous_axis_indicator(StaticInt{C}(), Val{N}())
+
+
+@inline function similar_with_offset(sptr::AbstractStridedPointer, ptr::Ptr, offset::Tuple, offset1)
+  si = StrideIndex(strides(sptr), offset, offset1)
   stridedpointer(ptr, si, contiguous_batch_size(sptr))
+end
+@inline function similar_with_offset(sptr::AbstractStridedPointer{T,N}, ptr::Ptr, offset::Tuple{Vararg{Integer,N}}) where {T,N}
+  similar_with_offset(sptr, ptr, offset, StrideIndex(sptr).offset1)
 end
 @inline function similar_with_offset(sptr::AbstractStridedPointer{T,N}, ptr::Ptr, offset::Tuple{<:Integer}) where {T,N}
-  si = StrideIndex(strides(sptr), StrideIndex(sptr).offsets, only(offset))
-  stridedpointer(ptr, si, contiguous_batch_size(sptr))
+  similar_with_offset(sptr, ptr, offset, only(offset))
 end
 @inline function similar_with_offset(sptr::AbstractStridedPointer{T,1}, ptr::Ptr, offset::Tuple{<:Integer}) where {T}
-  si = StrideIndex(strides(sptr), offset, only(offset))
-  stridedpointer(ptr, si, contiguous_batch_size(sptr))
+  similar_with_offset(sptr, ptr, offset, only(offset))
 end
 @inline function similar_no_offset(sptr::AbstractStridedPointer{T,N}, ptr::Ptr) where {T,N}
   si = StrideIndex(strides(sptr), zerotuple(Val(N)), Zero())
@@ -159,41 +167,6 @@ end
 # cumulative:
 # ptr = pointer(A) + 66 - 56  = pointer(A) + 10
 # so initial load is of pointer(A) + 10 -> the 11th element w/ 1-based indexing
-function double_index_quote(C,B,R::NTuple{N,Int},I1::Int,I2::Int,typ::Expr) where {N}
-  # place into position of second arg
-  J1 = I1 + 1; J2 = I2 + 1;
-  @assert (J1 != B) & (J2 != B)
-  Cnew = ((C == J1) | (C == J2)) ? -1 : (C - (J1 < C))
-  strd = Expr(:tuple); offs = Expr(:tuple);
-  inds = Expr(:tuple); Rtup = Expr(:tuple)
-  si = Expr(:curly, :StrideIndex, N-1, Rtup, Cnew)
-  for n in 1:N
-    if n == J1
-      push!(inds.args, :(Zero()))
-    elseif n == J2
-      arg1 = Expr(:ref, :strd, J1)
-      arg2 = Expr(:ref, :strd, J2)
-      push!(strd.args, Expr(:call, :*, arg1, arg2))
-      push!(offs.args, :(Zero()))
-      push!(inds.args, :(Zero()))
-      push!(Rtup.args, max(R[J1], R[J2]))
-    else
-      push!(strd.args, Expr(:ref, :strd, n))
-      push!(offs.args, Expr(:ref, :offs, n))
-      push!(inds.args, Expr(:ref, :offs, n))
-      push!(Rtup.args, R[n])
-    end
-  end
-  gepedptr = Expr(:call, :gep, :ptr, inds)
-  newptr = Expr(:call, :stridedpointer, gepedptr, Expr(:call, si, strd, offs, Zero()))
-  Expr(:block, Expr(:meta,:inline), :(strd = getfield(ptr, :strd)), :(offs = getfield(ptr, :offsets)), newptr)
-end
-@generated function double_index(ptr::StridedPointer{T,N,C,B,R}, ::Val{I1}, ::Val{I2}) where {T,N,C,B,R,I1,I2}
-  double_index_quote(C,B,R,I1,I2, Expr(:curly, :StridedPointer, :T, N - 1))
-end
-@generated function double_index(ptr::StridedBitPointer{N,C,B,R}, ::Val{I1}, ::Val{I2}) where {N,C,B,R,I1,I2}
-  double_index_quote(C,B,R,I1,I2, Expr(:curly, :StridedBitPointer, N - 1))
-end
 
 @inline stridedpointer(ptr::AbstractStridedPointer) = ptr
 @inline stridedpointer_preserve(ptr::AbstractStridedPointer) = (ptr,nothing)
@@ -222,7 +195,7 @@ end
 @inline ArrayInterface.contiguous_axis(::FastRange) = One()
 @inline ArrayInterface.contiguous_batch_size(::FastRange) = Zero()
 
-@inline stridedpointer(fr::FastRange, ::StaticInt{1}, ::StaticInt{0}, ::Val{(1,)}, ::Tuple{X}, ::Tuple{One}) where {X<:Integer} = fr
+@inline stridedpointer(fr::FastRange, ::StrideIndex, ::StaticInt{0}) = fr
 
 
 @inline reconstruct_ptr(r::FastRange{T}, o) where {T} = FastRange{T}(getfield(r,:f), getfield(r, :s), o)
