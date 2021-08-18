@@ -22,15 +22,17 @@ end
 @inline ind_diff(::Base.Slice, ::Any) = Zero()
 @inline ind_diff(x::AbstractRange, o) = static_first(x) - o
 @inline ind_diff(x::Integer, o) = x - o
-@inline function memory_reference(::CPUPointer, A::SubArray)
-  p, m = memory_reference(CPUPointer(), parent(A))
+@inline memory_reference(::CPUPointer, A::SubArray) = memory_reference_subarray(CPUPointer(), A)
+@inline memory_reference(::CPUTuple, A::SubArray) = memory_reference_subarray(CPUTuple(), A)
+@inline function memory_reference_subarray(::PT, A::SubArray) where {PT}
+  p, m = memory_reference(PT(), parent(A))
   pA = parent(A)
   offset = ArrayInterface.reduce_tup(+, map(*, map(ind_diff, A.indices, offsets(pA)), strides(pA)))
   p + sizeof(eltype(A))*offset, m
 end
-@inline function memory_reference(::ArrayInterface.CPUTuple, A)
+@inline function memory_reference(::CPUTuple, A)
   r = Ref(A)
-  Base.unsafe_convert(Ptr{eltype(A)}, r), r
+  Base.unsafe_convert(Ptr{eltype(A)}, Base.pointer_from_objref(r)), r
 end
 @inline function memory_reference(::ArrayInterface.CheckParent, A)
   P = parent(A)
@@ -42,19 +44,19 @@ end
 end
 @inline memory_reference(::ArrayInterface.CPUIndex, A) = throw("Memory access for $(typeof(A)) not implemented yet.")
 
-@inline ArrayInterface.contiguous_axis(::Type{A}) where {T,N,R,C,A<:AbstractStridedPointer{T,N,R,C}} = StaticInt{C}()
-@inline ArrayInterface.contiguous_batch_size(::Type{A}) where {T,N,R,C,B,A<:AbstractStridedPointer{T,N,R,C,B}} = StaticInt{B}()
-@inline ArrayInterface.stride_rank(::Type{A}) where {T,N,R,A<:AbstractStridedPointer{T,N,R}} = map(StaticInt, R)
+@inline ArrayInterface.contiguous_axis(::Type{A}) where {T,N,C,A<:AbstractStridedPointer{T,N,C}} = StaticInt{C}()
+@inline ArrayInterface.contiguous_batch_size(::Type{A}) where {T,N,C,B,A<:AbstractStridedPointer{T,N,C,B}} = StaticInt{B}()
+@inline ArrayInterface.stride_rank(::Type{A}) where {T,N,C,B,R,A<:AbstractStridedPointer{T,N,C,B,R}} = map(StaticInt, R)
 @inline memory_reference(A::AbstractStridedPointer) = pointer(A), nothing
 
 @inline Base.eltype(::AbstractStridedPointer{T}) where {T} = T
 
-struct StridedPointer{T,N,R,C,B,X,O,O1} <: AbstractStridedPointer{T,N,R,C,B,X,O,O1}
+struct StridedPointer{T,N,C,B,R,X,O,O1} <: AbstractStridedPointer{T,N,C,B,R,X,O,O1}
   p::Ptr{T}
   si::StrideIndex{N,R,C,X,O,O1}
 end
-@inline stridedpointer(p::Ptr{T}, si::StrideIndex{N,R,C,X,O,O1}, ::StaticInt{B}) where {T,N,R,C,B,X,O,O1} = StridedPointer{T,N,R,C,B,X,O,O1}(p, si)
-@inline stridedpointer(p::Ptr{T}, si::StrideIndex{N,R,C,X,O,O1}) where {T,N,R,C,X,O,O1} = StridedPointer{T,N,R,C,0,R,O,O1}(p, si)
+@inline stridedpointer(p::Ptr{T}, si::StrideIndex{N,R,C,X,O,O1}, ::StaticInt{B}) where {T,N,R,C,B,X,O,O1} = StridedPointer{T,N,C,B,R,X,O,O1}(p, si)
+@inline stridedpointer(p::Ptr{T}, si::StrideIndex{N,R,C,X,O,O1}) where {T,N,R,C,X,O,O1} = StridedPointer{T,N,C,0,R,X,O,O1}(p, si)
 
 @inline bytestrideindex(A::AbstractArray{T}) where {T} = mulstrides(T, StrideIndex(A))
 
@@ -69,8 +71,10 @@ end
   p, r = memory_reference(A)
   stridedpointer(p, bytestrideindex(A), ArrayInterface.contiguous_batch_size(A)), r
 end
-@inline val_stride_rank(::AbstractStridedPointer{T,N,R}) where {T,N,R} = Val{R}()
+@inline val_stride_rank(::AbstractStridedPointer{T,N,C,B,R}) where {T,N,C,B,R} = Val{R}()
 @generated val_dense_dims(::AbstractStridedPointer{T,N}) where {T,N} = Val{ntuple(==(0), Val(N))}()
+@inline val_stride_rank(A) = Val(known(stride_rank(A)))
+@inline val_dense_dims(A) = Val(known(ArrayInterface.dense_dims(A)))
 
 function zerotupleexpr(N::Int)
   t = Expr(:tuple);
@@ -115,12 +119,12 @@ end
 @inline bytestrideindex(sptr::AbstractStridedPointer) = StrideIndex(sptr)
 
 @inline bytestrides(si::StrideIndex) = map(Base.Fix2(*,StaticInt{8}()), si.strides)
-@inline bytestrides(ptr::AbstractStridedPointer) = (StrideIndex(ptr)).strides
-@inline Base.strides(ptr::AbstractStridedPointer) = (StrideIndex(ptr)).strides
-@inline ArrayInterface.strides(ptr::AbstractStridedPointer) = strides(StrideIndex(ptr))
+@inline bytestrides(ptr::AbstractStridedPointer) = StrideIndex(ptr).strides
+@inline Base.strides(ptr::AbstractStridedPointer) = StrideIndex(ptr).strides
+@inline ArrayInterface.strides(ptr::AbstractStridedPointer) = StrideIndex(ptr).strides
 @inline ArrayInterface.offsets(ptr::AbstractStridedPointer) = offsets(StrideIndex(ptr))
 @inline ArrayInterface.offset1(ptr::AbstractStridedPointer) = offset1(StrideIndex(ptr))
-@inline ArrayInterface.contiguous_axis_indicator(ptr::AbstractStridedPointer{T,N,R,C}) where {T,N,R,C} = contiguous_axis_indicator(StaticInt{C}(), Val{N}())
+@inline ArrayInterface.contiguous_axis_indicator(ptr::AbstractStridedPointer{T,N,C}) where {T,N,C} = contiguous_axis_indicator(StaticInt{C}(), Val{N}())
 
 
 @inline function similar_with_offset(sptr::AbstractStridedPointer, ptr::Ptr, offset::Tuple, offset1)
@@ -188,7 +192,7 @@ FastRange{T}(f::F,s::S,::False) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,I
   FastRange{T}(ArrayInterface.static_first(r) - s, s), nothing
 end
 @inline memory_reference(r::FastRange) = (r,nothing)
-@inline bytestrides(::FastRange{T}) where {T} = (static_sizeof(T),)
+@inline bytestrides(::FastRange{T}) where {T} = (StaticInt(sizeof(T)),)
 @inline ArrayInterface.offsets(::FastRange) = (One(),)
 @inline val_stride_rank(::FastRange) = Val{(1,)}()
 @inline val_dense_dims(::FastRange) = Val{(true,)}()
@@ -214,66 +218,6 @@ end
 # discard unnueeded align/reg size info
 @inline Base.eltype(::FastRange{T}) where {T} = T
 
-"""
-For structs wrapping arrays, using `GC.@preserve` can trigger heap allocations.
-`preserve_buffer` attempts to extract the heap-allocated part. Isolating it by itself
-will often allow the heap allocations to be elided. For example:
-
-```julia
-julia> using StaticArrays, BenchmarkTools
-
-julia> # Needed until a release is made featuring https://github.com/JuliaArrays/StaticArrays.jl/commit/a0179213b741c0feebd2fc6a1101a7358a90caed
-       Base.elsize(::Type{<:MArray{S,T}}) where {S,T} = sizeof(T)
-
-julia> @noinline foo(A) = unsafe_load(A,1)
-foo (generic function with 1 method)
-
-julia> function alloc_test_1()
-           A = view(MMatrix{8,8,Float64}(undef), 2:5, 3:7)
-           A[begin] = 4
-           GC.@preserve A foo(pointer(A))
-       end
-alloc_test_1 (generic function with 1 method)
-
-julia> function alloc_test_2()
-           A = view(MMatrix{8,8,Float64}(undef), 2:5, 3:7)
-           A[begin] = 4
-           pb = parent(A) # or `LoopVectorization.preserve_buffer(A)`; `perserve_buffer(::SubArray)` calls `parent`
-           GC.@preserve pb foo(pointer(A))
-       end
-alloc_test_2 (generic function with 1 method)
-
-julia> @benchmark alloc_test_1()
-BenchmarkTools.Trial:
-  memory estimate:  544 bytes
-  allocs estimate:  1
-  --------------
-  minimum time:     17.227 ns (0.00% GC)
-  median time:      21.352 ns (0.00% GC)
-  mean time:        26.151 ns (13.33% GC)
-  maximum time:     571.130 ns (78.53% GC)
-  --------------
-  samples:          10000
-  evals/sample:     998
-
-julia> @benchmark alloc_test_2()
-BenchmarkTools.Trial:
-  memory estimate:  0 bytes
-  allocs estimate:  0
-  --------------
-  minimum time:     3.275 ns (0.00% GC)
-  median time:      3.493 ns (0.00% GC)
-  mean time:        3.491 ns (0.00% GC)
-  maximum time:     4.998 ns (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     1000
-```
-"""
-@inline preserve_buffer(A::AbstractArray) = A
-@inline preserve_buffer(A::Union{LinearAlgebra.Transpose,LinearAlgebra.Adjoint,Base.ReinterpretArray,Base.ReshapedArray,PermutedDimsArray,SubArray}) = preserve_buffer(parent(A))
-@inline preserve_buffer(x) = x
-
 function llvmptr_comp_quote(cmp, Tsym)
   pt = Expr(:curly, GlobalRef(Core, :LLVMPtr), Tsym, 0)
   instrs = "%cmpi1 = icmp $cmp i8* %0, %1\n%cmpi8 = zext i1 %cmpi1 to i8\nret i8 %cmpi8"
@@ -296,5 +240,54 @@ for (op,f,cmp) ∈ [(:(<),:vlt,"ult"), (:(>),:vgt,"ugt"), (:(≤),:vle,"ule"), (
 end
 @inline linearize(p::StridedBitPointer) = -sum(map(*, getfield(p, :strd), getfield(p, :offsets)))
 
+# @inline Base.pointer(p::AbstractStridedPointer, i::Tuple) = pointer(p) + StrideIndex(p)[i...] 
+function reinterpret_strideindex_quote(
+  sz_new::Int, sz_old::Int, C::Int, N::Int, curly::Expr
+)
+  if sz_old == sz_new
+    # size_expr = :size_A
+    bx_expr = :bx
+  else
+    @assert 1 ≤ C ≤ N
+    # size_expr = Expr(:tuple)
+    bx_expr = Expr(:tuple)
+    for n ∈ 1:N
+      # sz_n = Expr(:call, GlobalRef(Core,:getfield), :size_A, n, false)
+      bx_n = Expr(:call, GlobalRef(Core,:getfield), :bx, n, false)
+      if n ≠ C
+        # push!(size_expr.args, sz_n)
+        push!(bx_expr.args, bx_n)
+      elseif sz_old > sz_new
+        si = :(StaticInt{$(sz_old ÷ sz_new)}())
+        # push!(size_expr.args, Expr(:call, :*, sz_n, si))
+        push!(bx_expr.args, Expr(:call, :÷, bx_n, si))
+      else
+        si = :(StaticInt{$(sz_new ÷ sz_old)}())
+        # push!(size_expr.args, Expr(:call, :÷, sz_n, si))
+        push!(bx_expr.args, Expr(:call, :*, bx_n, si))
+      end
+    end
+  end
+  quote
+    $(Expr(:meta,:inline))
+    bx = si.strides
+    $curly($bx_expr, si.offsets, si.offset1)
+  end
+end
+@generated function reinterpret_strideindex(::Type{Tnew}, ::Type{Told}, si::StrideIndex{N,R,C}) where {Tnew,Told,N,R,C}
+  # 1+2
+  reinterpret_strideindex_quote(offsetsize(Tnew), offsetsize(Told), C, N, :(StrideIndex{$N,$R,$C}))
+end
+@generated function Base.reinterpret(::Type{Tnew}, sp::AbstractStridedPointer{Told,N,C,B,R}) where {Tnew,Told,N,C,B,R}
+  # 1+2
+  sz_old = offsetsize(Told)
+  sz_new = offsetsize(Tnew)
+  Bnew = ((B > 0) & (sz_new ≠ sz_old)) ? ((B * sz_old) ÷ sz_new) : B
+  quote
+    $(Expr(:meta,:inline))
+    si = reinterpret_strideindex(Tnew, Told, StrideIndex(sp))
+    stridedpointer(reinterpret(Ptr{$Tnew}, pointer(sp)), si, StaticInt{$Bnew}())
+  end
+end
 
 

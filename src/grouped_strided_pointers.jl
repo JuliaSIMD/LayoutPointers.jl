@@ -24,7 +24,7 @@ end
   (p, pt...), (r, rt...)
 end
 
-struct DensePointerWrapper{D,T,N,R,C,B,X,O,O1,P<:AbstractStridedPointer{T,N,R,C,B,X,O,O1}} <: AbstractStridedPointer{T,N,R,C,B,X,O,O1}
+struct DensePointerWrapper{D,T,N,C,B,R,X,O,O1,P<:AbstractStridedPointer{T,N,C,B,R,X,O,O1}} <: AbstractStridedPointer{T,N,C,B,R,X,O,O1}
   p::P
 end
 
@@ -34,10 +34,7 @@ end
 @inline ArrayInterface.StrideIndex(sptr::DensePointerWrapper) = StrideIndex(getfield(sptr,:p))
 
 
-@inline DensePointerWrapper{D}(sp::P) where {D,T,N,R,C,B,X,O,O1,P<:AbstractStridedPointer{T,N,R,C,B,X,O,O1}} = DensePointerWrapper{D,T,N,R,C,B,X,O,O1,P}(sp)
-# for f ∈ (:bytestrides,:offsets)
-#   @eval @inline $f(A::DensePointerWrapper) = $f(getfield(A,:p))
-# end
+@inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,O1,P<:AbstractStridedPointer{T,N,C,B,R,X,O,O1}} = DensePointerWrapper{D,T,N,C,B,R,X,O,O1,P}(sp)
 
 @inline _gp_offset1(x) = x.offset1
 @inline _gp_strides(x) = x.strides
@@ -239,7 +236,7 @@ end
           xstatic = xparam <: StaticInt
           push!(staticxs, xstatic)
           if xstatic
-            push!(Xt.args, Expr(:call, xparam))#Expr(:curly, :StaticInt, _unwrap(Xₙ[j]))))
+            push!(Xt.args, Expr(:call, xparam))
           else
             if xₙ_not_extracted
               push!(q.args, Expr(:(=), xₙ, Expr(:call, Core.getfield, :x, n, false)))
@@ -251,7 +248,7 @@ end
           ostatic = oparam <: StaticInt
           push!(staticos, ostatic)
           if ostatic
-            push!(Ot.args, Expr(:call, oparam))#Expr(:curly, :StaticInt, _unwrap(oparam))))
+            push!(Ot.args, Expr(:call, oparam))
           else
             if oₙ_not_extracted
               push!(q.args, Expr(:(=), oₙ, Expr(:call, Core.getfield, :o, n, false)))
