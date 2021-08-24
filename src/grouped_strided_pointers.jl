@@ -3,15 +3,14 @@ P are the pointers
 I contains indexes into `strides` (dynamic) and `X` (static)
 X static strides
 """
-struct GroupedStridedPointers{P,C,B,R,I,X,O,O1}
+struct GroupedStridedPointers{P,C,B,R,I,X,O}
   ptrs::P
   strides::X
   offsets::O
-  offset1::O1
 end
 
-@inline function GroupedStridedPointers{P,C,B,R,I}(ptrs::P, strides::X, offsets::O, offset1::O1) where {P,C,B,R,I,X,O,O1}
-  GroupedStridedPointers{P,C,B,R,I,X,O,O1}(ptrs, strides, offsets, offset1)
+@inline function GroupedStridedPointers{P,C,B,R,I}(ptrs::P, strides::X, offsets::O) where {P,C,B,R,I,X,O}
+  GroupedStridedPointers{P,C,B,R,I,X,O}(ptrs, strides, offsets)
 end
 
 @inline function map_mem_ref(A::Tuple{P}) where {P}
@@ -24,7 +23,7 @@ end
   (p, pt...), (r, rt...)
 end
 
-struct DensePointerWrapper{D,T,N,C,B,R,X,O,O1,P<:AbstractStridedPointer{T,N,C,B,R,X,O,O1}} <: AbstractStridedPointer{T,N,C,B,R,X,O,O1}
+struct DensePointerWrapper{D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} <: AbstractStridedPointer{T,N,C,B,R,X,O}
   p::P
 end
 
@@ -34,9 +33,8 @@ end
 @inline ArrayInterface.StrideIndex(sptr::DensePointerWrapper) = StrideIndex(getfield(sptr,:p))
 
 
-@inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,O1,P<:AbstractStridedPointer{T,N,C,B,R,X,O,O1}} = DensePointerWrapper{D,T,N,C,B,R,X,O,O1,P}(sp)
+@inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} = DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
 
-@inline _gp_offset1(x) = x.offset1
 @inline _gp_strides(x) = x.strides
 grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((),())
 """
@@ -52,15 +50,14 @@ it gives the groups.
     map(val_stride_rank, A),
     map(_gp_strides, sis),
     map(offsets, sis),
-    map(_gp_offset1, sis),
     map(val_dense_dims, A),
     Val{G}()
   ), r
 end
 
 @generated function grouped_strided_pointer(
-  ptrs::P, contig_axis::C, batch_sz::B, r::R, x::X, o::O, o1::O1, d::D, ::Val{()}
-) where {P,C,B,R,X,O,O1,D}
+  ptrs::P, contig_axis::C, batch_sz::B, r::R, x::X, o::O, d::D, ::Val{()}
+) where {P,C,B,R,X,O,D}
   # no groups
   N = length(P.parameters)
   q = Expr(:block, Expr(:meta, :inline))
@@ -76,7 +73,6 @@ end
     if !iszero(length(Xₙ.parameters))
       xₙ = Symbol(:x_,n)
       oₙ = Symbol(:o_,n)
-      o1ₙ = Symbol(:o1_,n)
       push!(q.args, Expr(:(=), xₙ, Expr(:call, Core.getfield, :x, n, false)))
       push!(q.args, Expr(:(=), oₙ, Expr(:call, Core.getfield, :o, n, false)))
       for j ∈ 1:length(Xₙ.parameters)
@@ -87,7 +83,7 @@ end
     end
     push!(It.args, Itt)
   end
-  push!(q.args, :(GroupedStridedPointers{$P,$Ct,$Bt,$Rt,$It}(ptrs, $Xt, $Ot, o1)))
+  push!(q.args, :(GroupedStridedPointers{$P,$Ct,$Bt,$Rt,$It}(ptrs, $Xt, $Ot)))
   q
 end
 
@@ -130,8 +126,8 @@ end
 # _typesize(@nospecialize(_::Type{Ptr{T}})) where {T} = (Base.allocatedinline(T) ? sizeof(T) : sizeof(Int))::Int
 # _typesize(@nospecialize(_)) = -1
 @generated function grouped_strided_pointer(
-  ptrs::P, contig_axis::C, batch_sz::B, r::R, x::X, o::O, o1::O1, d::D, ::Val{G}
-) where {P,C,B,R,X,O,O1,D,G}
+  ptrs::P, contig_axis::C, batch_sz::B, r::R, x::X, o::O, d::D, ::Val{G}
+) where {P,C,B,R,X,O,D,G}
   # 1+1
   N = length(P.parameters)
   # We search for stride matches here
@@ -262,14 +258,14 @@ end
     end
     push!(It.args, Itt)
   end
-  push!(q.args, :(GroupedStridedPointers{$P,$Ct,$Bt,$Rt,$It}(ptrs, $Xt, $Ot, o1)))
+  push!(q.args, :(GroupedStridedPointers{$P,$Ct,$Bt,$Rt,$It}(ptrs, $Xt, $Ot)))
   q
 end
 
 @generated function stridedpointers(gsp::GroupedStridedPointers{P,C,B,R,I,X,O}) where {P,C,B,R,N,X<:Tuple{Vararg{Any,N}},O<:Tuple{Vararg{Any,N}},I}
   t = Expr(:tuple)
   gf = Core.getfield
-  q = Expr(:block, Expr(:meta,:inline), :(ptrs = $gf(gsp, :ptrs)), :(strds = $gf(gsp, :strides)), :(offs = $gf(gsp, :offsets)), :(off1 = $gf(gsp, :offset1)))
+  q = Expr(:block, Expr(:meta,:inline), :(ptrs = $gf(gsp, :ptrs)), :(strds = $gf(gsp, :strides)), :(offs = $gf(gsp, :offsets)))
   for n ∈ 1:N
     push!(
       q.args,
@@ -286,8 +282,7 @@ end
       push!(x.args, Symbol(:x_,j))
       push!(o.args, Symbol(:o_,j))
     end
-    o1 = Expr(:call, gf, :off1, i,false)
-    si = Expr(:call, Expr(:curly, :StrideIndex, Nᵢ, R[i], C[i]), x, o, o1)
+    si = Expr(:call, Expr(:curly, :StrideIndex, Nᵢ, R[i], C[i]), x, o)
     push!(t.args, Expr(:call, :stridedpointer, p, si, :(StaticInt{$(B[i])}())))
   end
   push!(q.args, t); return q

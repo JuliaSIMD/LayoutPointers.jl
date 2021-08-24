@@ -1,7 +1,8 @@
-using LayoutPointers, ArrayInterface, Test
+using LayoutPointers, ArrayInterface, Aqua, Test
 
 @testset "LayoutPointers.jl" begin
-
+  Aqua.test_all(LayoutPointers)
+  
   println("Grouped Strided Pointers")
   @time @testset "Grouped Strided Pointers" begin
     M, K, N = 4, 5, 6

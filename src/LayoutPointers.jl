@@ -11,7 +11,7 @@ using ManualMemory: preserve_buffer, offsetsize
 export stridedpointer
 
 """
-  abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Integer,N}},O<:Tuple{Vararg{Integer,N}},O1} end
+  abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Integer,N}},O<:Tuple{Vararg{Integer,N}}} end
 
 T: element type
 N: dimensionality
@@ -21,11 +21,11 @@ R: rank of strides
 X: strides
 O: offsets
 """
-abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Integer,N}},O<:Tuple{Vararg{Integer,N}},O1} end
-
+abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Integer,N}},O<:Tuple{Vararg{Integer,N}}} end
 
 
 include("stridedpointers.jl")
 include("grouped_strided_pointers.jl")
+include("precompile.jl")
 
 end
