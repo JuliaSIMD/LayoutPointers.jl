@@ -36,7 +36,9 @@ end
 @inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} = DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
 
 @inline _gp_strides(x) = x.strides
+@inline _gp_strides(::NoStrides) = NoStrides()
 grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((),())
+
 """
 G is a tuple(tuple((A_ind,A's dim),(A_ind,A's dim)), ())
 it gives the groups.
@@ -274,9 +276,13 @@ end
     )
   end
   for i ∈ eachindex(I)
+    p = Expr(:call, gf, :ptrs, i, false)
+    if P.parameters[i] <: FastRange
+      push!(t.args, p)
+      continue
+    end
     Iᵢ = I[i]
     Nᵢ = length(Iᵢ)
-    p = Expr(:call, gf, :ptrs, i, false)
     x = Expr(:tuple); o = Expr(:tuple)
     for j ∈ Iᵢ
       push!(x.args, Symbol(:x_,j))

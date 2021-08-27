@@ -69,6 +69,7 @@ end
 end
 @inline function stridedpointer_preserve(A::AbstractArray)
   p, r = memory_reference(A)
+  
   stridedpointer(p, bytestrideindex(A), ArrayInterface.contiguous_batch_size(A)), r
 end
 @inline val_stride_rank(::AbstractStridedPointer{T,N,C,B,R}) where {T,N,C,B,R} = Val{R}()
@@ -104,12 +105,13 @@ Base.unsafe_convert(::Type{Ptr{T}}, ptr::AbstractStridedPointer{T}) where {T} = 
   Expr(:block, Expr(:meta, :inline), t)
 end
 
+@inline dynamic_offsets(si::StrideIndex{N,R,C}) where {N,R,C} = StrideIndex{N,R,C}(strides(si), map(Int, offsets(si)))
 struct StridedBitPointer{N,C,B,R,X,O} <: AbstractStridedPointer{Bit,N,C,B,R,X,O}
   p::Ptr{Bit}
   si::StrideIndex{N,R,C,X,O}
 end
-@inline stridedpointer(p::Ptr{Bit}, si::StrideIndex{N,R,C,X,O}, ::StaticInt{B}) where {N,R,C,B,X,O} = StridedBitPointer{N,C,B,R,X,O}(p, si)
-@inline stridedpointer(p::Ptr{Bit}, si::StrideIndex{N,R,C,X,O}) where {N,R,C,X,O} = StridedBitPointer{N,C,B,R,X,O}(p, si)
+@inline stridedpointer(p::Ptr{Bit}, si::StrideIndex{N,R,C,X,O}, ::StaticInt{B}) where {N,R,C,B,X,O} = StridedBitPointer{N,C,B,R,X,NTuple{N,Int}}(p, dynamic_offsets(si))
+@inline stridedpointer(p::Ptr{Bit}, si::StrideIndex{N,R,C,X,O}) where {N,R,C,X,O} = StridedBitPointer{N,C,0,R,X,NTuple{N,Int}}(p, dynamic_offsets(si))
 
 @inline Base.pointer(p::Union{StridedPointer,StridedBitPointer}) = getfield(p, :p)
 @inline ArrayInterface.StrideIndex(sptr::Union{StridedPointer,StridedBitPointer}) = getfield(sptr,:si)
@@ -170,9 +172,10 @@ end
 FastRange{T}(f::F,s::S) where {T<:Integer,F,S} = FastRange{T,Zero,S,F}(Zero(),s,f)
 FastRange{T}(f::F,s::S,o::O) where {T,F,S,O} = FastRange{T,F,S,O}(f,s,o)
 
-FastRange{T}(f,s) where {T<:FloatingTypes} = FastRange{T}(f,s,fast_int64_to_double())
-FastRange{T}(f::F,s::S,::True) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,Int}(f,s,0)
-FastRange{T}(f::F,s::S,::False) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,Int32}(f,s,zero(Int32))
+FastRange{T}(f::F,s::S) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,Int}(f,s,0)
+# FastRange{T}(f,s) where {T<:FloatingTypes} = FastRange{T}(f,s,fast_int64_to_double())
+# FastRange{T}(f::F,s::S,::True) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,Int}(f,s,0)
+# FastRange{T}(f::F,s::S,::False) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,Int32}(f,s,zero(Int32))
 
 @inline function memory_reference(r::AbstractRange{T}) where {T}
   s = ArrayInterface.static_step(r)
@@ -187,8 +190,9 @@ end
 @inline ArrayInterface.contiguous_batch_size(::FastRange) = Zero()
 
 @inline stridedpointer(fr::FastRange, ::StrideIndex, ::StaticInt{0}) = fr
-
-
+struct NoStrides end
+@inline bytestrideindex(::FastRange) = NoStrides()
+@inline ArrayInterface.offsets(::NoStrides) = NoStrides()
 @inline reconstruct_ptr(r::FastRange{T}, o) where {T} = FastRange{T}(getfield(r,:f), getfield(r, :s), o)
 
 
