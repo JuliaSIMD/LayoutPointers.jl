@@ -6,8 +6,8 @@ end
   Expr(:block, Expr(:meta,:inline), Expr(:call, Expr(:curly, :StaticInt, N*st)))
 end
 @inline mulsizeof(::Type{T}, ::Tuple{}) where {T} = ()
-@inline mulsizeof(::Type{T}, x::Tuple{X}) where {T,X} = (mulsizeof(T, first(x)), )
-@inline mulsizeof(::Type{T}, x::Tuple) where {T} = (mulsizeof(T, first(x)), mulsizeof(T, Base.tail(x))...)
+@inline mulsizeof(::Type{T}, x::Tuple{X}) where {T,X} = (mulsizeof(T, getfield(x,1,false)), )
+@inline mulsizeof(::Type{T}, x::Tuple{X1,X2,Vararg}) where {T,X1,X2} = (mulsizeof(T, getfield(x,1,false)), mulsizeof(T, Base.tail(x))...)
 
 @inline bytestrides(A::AbstractArray{T}) where {T} = mulsizeof(T, ArrayInterface.strides(A))
 
@@ -27,7 +27,7 @@ end
 @inline function memory_reference_subarray(::PT, A::SubArray) where {PT}
   p, m = memory_reference(PT(), parent(A))
   pA = parent(A)
-  offset = ArrayInterface.reduce_tup(+, map(*, map(ind_diff, A.indices, offsets(pA)), strides(pA)))
+  offset = ArrayInterface.reduce_tup(+, _map(*, _map(ind_diff, A.indices, offsets(pA)), strides(pA)))
   p + sizeof(eltype(A))*offset, m
 end
 @inline function memory_reference(::CPUTuple, A)
@@ -46,7 +46,7 @@ end
 
 @inline ArrayInterface.contiguous_axis(::Type{A}) where {T,N,C,A<:AbstractStridedPointer{T,N,C}} = StaticInt{C}()
 @inline ArrayInterface.contiguous_batch_size(::Type{A}) where {T,N,C,B,A<:AbstractStridedPointer{T,N,C,B}} = StaticInt{B}()
-@inline ArrayInterface.stride_rank(::Type{A}) where {T,N,C,B,R,A<:AbstractStridedPointer{T,N,C,B,R}} = map(StaticInt, R)
+@inline ArrayInterface.stride_rank(::Type{A}) where {T,N,C,B,R,A<:AbstractStridedPointer{T,N,C,B,R}} = _map(StaticInt, R)
 @inline memory_reference(A::AbstractStridedPointer) = pointer(A), nothing
 
 @inline Base.eltype(::AbstractStridedPointer{T}) where {T} = T
@@ -105,7 +105,7 @@ Base.unsafe_convert(::Type{Ptr{T}}, ptr::AbstractStridedPointer{T}) where {T} = 
   Expr(:block, Expr(:meta, :inline), t)
 end
 
-@inline dynamic_offsets(si::StrideIndex{N,R,C}) where {N,R,C} = StrideIndex{N,R,C}(strides(si), map(Int, offsets(si)))
+@inline dynamic_offsets(si::StrideIndex{N,R,C}) where {N,R,C} = StrideIndex{N,R,C}(strides(si), _map(Int, offsets(si)))
 struct StridedBitPointer{N,C,B,R,X,O} <: AbstractStridedPointer{Bit,N,C,B,R,X,O}
   p::Ptr{Bit}
   si::StrideIndex{N,R,C,X,O}
@@ -117,10 +117,10 @@ end
 @inline ArrayInterface.StrideIndex(sptr::Union{StridedPointer,StridedBitPointer}) = getfield(sptr,:si)
 @inline bytestrideindex(sptr::AbstractStridedPointer) = StrideIndex(sptr)
 
-@inline bytestrides(si::StrideIndex) = map(Base.Fix2(*,StaticInt{8}()), si.strides)
-@inline bytestrides(ptr::AbstractStridedPointer) = StrideIndex(ptr).strides
-@inline Base.strides(ptr::AbstractStridedPointer) = StrideIndex(ptr).strides
-@inline ArrayInterface.strides(ptr::AbstractStridedPointer) = StrideIndex(ptr).strides
+@inline bytestrides(si::StrideIndex) = _map(Base.Fix2(*,StaticInt{8}()), getfield(si,:strides))
+@inline bytestrides(ptr::AbstractStridedPointer) = getfield(StrideIndex(ptr), :strides)
+@inline Base.strides(ptr::AbstractStridedPointer) = getfield(StrideIndex(ptr), :strides)
+@inline ArrayInterface.strides(ptr::AbstractStridedPointer) = getfield(StrideIndex(ptr), :strides)
 @inline ArrayInterface.offsets(ptr::AbstractStridedPointer) = offsets(StrideIndex(ptr))
 @inline ArrayInterface.contiguous_axis_indicator(ptr::AbstractStridedPointer{T,N,C}) where {T,N,C} = contiguous_axis_indicator(StaticInt{C}(), Val{N}())
 

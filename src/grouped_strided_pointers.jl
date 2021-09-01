@@ -35,7 +35,8 @@ end
 
 @inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} = DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
 
-@inline _gp_strides(x) = x.strides
+@inline _gp_strides(x::StrideIndex) = getfield(x,:strides)
+@inline _gp_strides(x) = strides(x)
 @inline _gp_strides(::NoStrides) = NoStrides()
 grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((),())
 
@@ -45,14 +46,14 @@ it gives the groups.
 """
 @inline function grouped_strided_pointer(A::Tuple{Vararg{Union{AbstractArray,AbstractStridedPointer,FastRange},N}}, ::Val{G}) where {N,G}
   m, r = map_mem_ref(A)
-  sis = map(bytestrideindex, A)
+  sis = _map(bytestrideindex, A)
   grouped_strided_pointer(
-    m, map(contiguous_axis, A),
-    map(contiguous_batch_size, A),
-    map(val_stride_rank, A),
-    map(_gp_strides, sis),
-    map(offsets, sis),
-    map(val_dense_dims, A),
+    m, _map(contiguous_axis, A),
+    _map(contiguous_batch_size, A),
+    _map(val_stride_rank, A),
+    _map(_gp_strides, sis),
+    _map(offsets, sis),
+    _map(val_dense_dims, A),
     Val{G}()
   ), r
 end
