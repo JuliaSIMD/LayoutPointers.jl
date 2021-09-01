@@ -15,6 +15,10 @@ export stridedpointer
 @inline _map(f::F, x::Tuple{X1}) where {F,X1} = (f(getfield(x,1,false)), )
 @inline _map(f::F, x::Tuple{X1,X2,Vararg{Any,K}}) where {F,X1,X2,K} = (f(getfield(x,1,false)), _map(f, Base.tail(x))...)
 
+@inline _map(f::F, x::Tuple{}, y::Tuple{}) where {F} = ()
+@inline _map(f::F, x::Tuple{X1}, y::Tuple{Y1}) where {F,X1,Y1} = (f(getfield(x,1,false), getfield(y,1,false)), )
+@inline _map(f::F, x::Tuple{X1,X2,Vararg{Any,K}}, y::Tuple{Y1,Y2,Vararg{Any,K}}) where {F,X1,X2,Y1,Y2,K} = (f(getfield(x,1,false), getfield(y,1,false)), _map(f, Base.tail(x), Base.tail(y))...)
+
 
 """
   abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Integer,N}},O<:Tuple{Vararg{Integer,N}}} end
