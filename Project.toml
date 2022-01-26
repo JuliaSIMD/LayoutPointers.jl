@@ -11,7 +11,7 @@ SIMDTypes = "94e857df-77ce-4151-89e5-788b33177be4"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 
 [compat]
-ArrayInterface = "3.1.24"
+ArrayInterface = "3.1.24, 4"
 ManualMemory = "0.1.6"
 SIMDTypes = "0.1"
 Static = "0.3, 0.4, 0.5"
