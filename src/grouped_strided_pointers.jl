@@ -9,7 +9,11 @@ struct GroupedStridedPointers{P,C,B,R,I,X,O}
   offsets::O
 end
 
-@inline function GroupedStridedPointers{P,C,B,R,I}(ptrs::P, strides::X, offsets::O) where {P,C,B,R,I,X,O}
+@inline function GroupedStridedPointers{P,C,B,R,I}(
+  ptrs::P,
+  strides::X,
+  offsets::O,
+) where {P,C,B,R,I,X,O}
   GroupedStridedPointers{P,C,B,R,I,X,O}(ptrs, strides, offsets)
 end
 
@@ -23,59 +27,80 @@ end
   (p, pt...), (r, rt...)
 end
 
-struct DensePointerWrapper{D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} <: AbstractStridedPointer{T,N,C,B,R,X,O}
+struct DensePointerWrapper{D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} <:
+       AbstractStridedPointer{T,N,C,B,R,X,O}
   p::P
 end
 
 @inline val_dense_dims(::DensePointerWrapper{D}) where {D} = Val{D}()
 
-@inline Base.pointer(A::DensePointerWrapper) = pointer(getfield(A,:p))
-@inline ArrayInterface.StrideIndex(sptr::DensePointerWrapper) = StrideIndex(getfield(sptr,:p))
+@inline Base.pointer(A::DensePointerWrapper) = pointer(getfield(A, :p))
+@inline ArrayInterface.StrideIndex(sptr::DensePointerWrapper) =
+  StrideIndex(getfield(sptr, :p))
 
 
-@inline DensePointerWrapper{D}(sp::P) where {D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} = DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
+@inline DensePointerWrapper{D}(
+  sp::P,
+) where {D,T,N,C,B,R,X,O,P<:AbstractStridedPointer{T,N,C,B,R,X,O}} =
+  DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
 
-@inline _gp_strides(x::StrideIndex) = getfield(x,:strides)
+@inline _gp_strides(x::StrideIndex) = getfield(x, :strides)
 @inline _gp_strides(x) = strides(x)
 @inline _gp_strides(::NoStrides) = NoStrides()
-grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((),())
+grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((), ())
 
 """
 G is a tuple(tuple((A_ind,A's dim),(A_ind,A's dim)), ())
 it gives the groups.
 """
-@inline function grouped_strided_pointer(A::Tuple{Vararg{Union{AbstractArray,AbstractStridedPointer,FastRange},N}}, ::Val{G}) where {N,G}
+@inline function grouped_strided_pointer(
+  A::Tuple{Vararg{Union{AbstractArray,AbstractStridedPointer,FastRange},N}},
+  ::Val{G},
+) where {N,G}
   m, r = map_mem_ref(A)
   sis = _map(bytestrideindex, A)
   grouped_strided_pointer(
-    m, _map(contiguous_axis, A),
+    m,
+    _map(contiguous_axis, A),
     _map(contiguous_batch_size, A),
     _map(val_stride_rank, A),
     _map(_gp_strides, sis),
     _map(offsets, sis),
     _map(val_dense_dims, A),
-    Val{G}()
-  ), r
+    Val{G}(),
+  ),
+  r
 end
 
 @generated function grouped_strided_pointer(
-  ptrs::P, contig_axis::C, batch_sz::B, r::R, x::X, o::O, d::D, ::Val{()}
+  ptrs::P,
+  contig_axis::C,
+  batch_sz::B,
+  r::R,
+  x::X,
+  o::O,
+  d::D,
+  ::Val{()},
 ) where {P,C,B,R,X,O,D}
   # no groups
   N = length(P.parameters)
   q = Expr(:block, Expr(:meta, :inline))
   i = 0
-  Ct = Expr(:tuple); Bt = Expr(:tuple); Rt = Expr(:tuple);
-  Xt = Expr(:tuple); Ot = Expr(:tuple); It = Expr(:tuple)
-  for n in 1:N
+  Ct = Expr(:tuple)
+  Bt = Expr(:tuple)
+  Rt = Expr(:tuple)
+  Xt = Expr(:tuple)
+  Ot = Expr(:tuple)
+  It = Expr(:tuple)
+  for n = 1:N
     push!(Ct.args, C.parameters[n].parameters[1])
     push!(Bt.args, B.parameters[n].parameters[1])
     push!(Rt.args, R.parameters[n].parameters[1])
-    Xₙ = X.parameters[n];# Oₙ = O.parameters[n];
+    Xₙ = X.parameters[n]# Oₙ = O.parameters[n];
     Itt = Expr(:tuple)
     if !iszero(length(Xₙ.parameters))
-      xₙ = Symbol(:x_,n)
-      oₙ = Symbol(:o_,n)
+      xₙ = Symbol(:x_, n)
+      oₙ = Symbol(:o_, n)
       push!(q.args, Expr(:(=), xₙ, Expr(:call, Core.getfield, :x, n, false)))
       push!(q.args, Expr(:(=), oₙ, Expr(:call, Core.getfield, :o, n, false)))
       for j ∈ 1:length(Xₙ.parameters)
@@ -93,7 +118,7 @@ end
 function ordered_rank_and_sort(R::NTuple{N,Int}) where {N}
   sp = ntuple(zero, Val{N}())
   r = ntuple(n -> sum(R[n] .≥ R), Val{N}())
-  @inbounds for n in 1:N
+  @inbounds for n = 1:N
     sp = Base.setindex(sp, n, r[n])
   end
   (r, sp)::NTuple{2,NTuple{N,Int}}
@@ -129,7 +154,14 @@ end
 # _typesize(@nospecialize(_::Type{Ptr{T}})) where {T} = (Base.allocatedinline(T) ? sizeof(T) : sizeof(Int))::Int
 # _typesize(@nospecialize(_)) = -1
 @generated function grouped_strided_pointer(
-  ptrs::P, contig_axis::C, batch_sz::B, r::R, x::X, o::O, d::D, ::Val{G}
+  ptrs::P,
+  contig_axis::C,
+  batch_sz::B,
+  r::R,
+  x::X,
+  o::O,
+  d::D,
+  ::Val{G},
 ) where {P,C,B,R,X,O,D,G}
   # 1+1
   N = length(P.parameters)
@@ -147,13 +179,13 @@ end
         aj, dj = g[j]
         # @show aj, dj
         jdim = length(X.parameters[aj].parameters)
-        pm = if isassigned(m, LinearIndices(m)[ai,aj])
+        pm = if isassigned(m, LinearIndices(m)[ai, aj])
           m[ai, aj]
         elseif ai < aj
-          m[ai,aj] = m[aj,ai] = fill(false, jdim, idim)
+          m[ai, aj] = m[aj, ai] = fill(false, jdim, idim)
           # m[aj,ai] = fill(false, idim, jdim)
         elseif ai > aj
-          m[ai,aj] = m[aj,ai] = fill(false, idim, jdim)
+          m[ai, aj] = m[aj, ai] = fill(false, idim, jdim)
           # m[ai,aj] = fill(false, jdim, idim)
         end
         if ai < aj
@@ -177,10 +209,15 @@ end
   # m contains information on matching sizes
   q = Expr(:block, Expr(:meta, :inline))
   i = 0
-  staticxs = Bool[]; staticos = Bool[];
-  Ct = Expr(:tuple); Bt = Expr(:tuple); Rt = Expr(:tuple);
-  Xt = Expr(:tuple); Ot = Expr(:tuple); It = Expr(:tuple)
-  for n in 1:N
+  staticxs = Bool[]
+  staticos = Bool[]
+  Ct = Expr(:tuple)
+  Bt = Expr(:tuple)
+  Rt = Expr(:tuple)
+  Xt = Expr(:tuple)
+  Ot = Expr(:tuple)
+  It = Expr(:tuple)
+  for n = 1:N
     push!(Ct.args, C.parameters[n].parameters[1])
     push!(Bt.args, B.parameters[n].parameters[1])
     Rₙ = R.parameters[n].parameters[1]
@@ -191,23 +228,23 @@ end
     if ndim > 0
       Rₙ, Sₙ = ordered_rank_and_sort(Rₙ)
       Dₙ = D.parameters[n].parameters[1]
-      xₙ = Symbol(:x_,n)
-      oₙ = Symbol(:o_,n)
+      xₙ = Symbol(:x_, n)
+      oₙ = Symbol(:o_, n)
       xₙ_not_extracted = true
       oₙ_not_extracted = true
-      for j in 1:ndim
+      for j = 1:ndim
         # Here, we now check if we actually need to add info, or if we can find it
         match = false
         Rₙⱼ = (Rₙ[j])::Int
         # nprev_max = isone(Rₙⱼ) ? 0 : n - 1
-        for nprev in 1:n-1#ifelse(eltypesizes[n] == -1, 0, n - 1)
+        for nprev = 1:n-1#ifelse(eltypesizes[n] == -1, 0, n - 1)
           # eltypematch = (eltypesizes[nprev] == eltypesizes[n])
           # @show n, nprev
-          isassigned(m, LinearIndices(m)[n,nprev]) || continue
+          isassigned(m, LinearIndices(m)[n, nprev]) || continue
           pm = m[n, nprev] # just accessing lower triangle, but matrix is symmetric
           # pm is ndim_n x ndim_nprev
           # we need to search back through stride ranks...
-          for k ∈ axes(pm,2)
+          for k ∈ axes(pm, 2)
             Rₚ, Sₚ = ordered_rank_and_sort(R.parameters[nprev].parameters[1])
             Dₚ = D.parameters[nprev].parameters[1]
             Xₚ = X.parameters[nprev].parameters
@@ -265,15 +302,23 @@ end
   q
 end
 
-@generated function stridedpointers(gsp::GroupedStridedPointers{P,C,B,R,I,X,O}) where {P,C,B,R,N,X<:Tuple{Vararg{Any,N}},O<:Tuple{Vararg{Any,N}},I}
+@generated function stridedpointers(
+  gsp::GroupedStridedPointers{P,C,B,R,I,X,O},
+) where {P,C,B,R,N,X<:Tuple{Vararg{Any,N}},O<:Tuple{Vararg{Any,N}},I}
   t = Expr(:tuple)
   gf = Core.getfield
-  q = Expr(:block, Expr(:meta,:inline), :(ptrs = $gf(gsp, :ptrs)), :(strds = $gf(gsp, :strides)), :(offs = $gf(gsp, :offsets)))
+  q = Expr(
+    :block,
+    Expr(:meta, :inline),
+    :(ptrs = $gf(gsp, :ptrs)),
+    :(strds = $gf(gsp, :strides)),
+    :(offs = $gf(gsp, :offsets)),
+  )
   for n ∈ 1:N
     push!(
       q.args,
-      Expr(:(=), Symbol(:x_,n), Expr(:call, gf, :strds, n, false)),
-      Expr(:(=), Symbol(:o_,n), Expr(:call, gf, :offs, n, false))
+      Expr(:(=), Symbol(:x_, n), Expr(:call, gf, :strds, n, false)),
+      Expr(:(=), Symbol(:o_, n), Expr(:call, gf, :offs, n, false)),
     )
   end
   for i ∈ eachindex(I)
@@ -284,13 +329,15 @@ end
     end
     Iᵢ = I[i]
     Nᵢ = length(Iᵢ)
-    x = Expr(:tuple); o = Expr(:tuple)
+    x = Expr(:tuple)
+    o = Expr(:tuple)
     for j ∈ Iᵢ
-      push!(x.args, Symbol(:x_,j))
-      push!(o.args, Symbol(:o_,j))
+      push!(x.args, Symbol(:x_, j))
+      push!(o.args, Symbol(:o_, j))
     end
     si = Expr(:call, Expr(:curly, :StrideIndex, Nᵢ, R[i], C[i]), x, o)
     push!(t.args, Expr(:call, :stridedpointer, p, si, :(StaticInt{$(B[i])}())))
   end
-  push!(q.args, t); return q
+  push!(q.args, t)
+  return q
 end
