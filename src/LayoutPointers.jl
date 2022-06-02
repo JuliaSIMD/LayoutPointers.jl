@@ -37,7 +37,7 @@ export stridedpointer
 
 
 """
-  abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Integer,N}},O<:Tuple{Vararg{Integer,N}}} end
+  abstract type AbstractStridedPointer{T,N,C,B,R,X<:Tuple{Vararg{Union{Int,StaticInt},N}},O<:Tuple{Vararg{Union{Int,StaticInt},N}}} end
 
 T: element type
 N: dimensionality
@@ -53,8 +53,8 @@ abstract type AbstractStridedPointer{
   C,
   B,
   R,
-  X<:Tuple{Vararg{Integer,N}},
-  O<:Tuple{Vararg{Integer,N}},
+  X<:Tuple{Vararg{Union{Int,StaticInt},N}},
+  O<:Tuple{Vararg{Union{Int,StaticInt},N}},
 } end
 
 
