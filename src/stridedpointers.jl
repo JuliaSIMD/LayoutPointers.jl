@@ -31,7 +31,7 @@ end
 end
 @inline ind_diff(::Base.Slice, ::Any) = Zero()
 @inline ind_diff(x::AbstractRange, o) = static_first(x) - o
-@inline ind_diff(x::Union{StaticInt,Int}, o) = x - o
+@inline ind_diff(x::IntegerTypes, o) = x - o
 @inline memory_reference(::CPUPointer, A::SubArray) =
   memory_reference_subarray(CPUPointer(), A)
 @inline memory_reference(::CPUTuple, A::SubArray) = memory_reference_subarray(CPUTuple(), A)
@@ -225,7 +225,7 @@ struct FastRange{T,F,S,O}# <: AbstractStridedPointer{T,1,1,0,(1,),Tuple{S},Tuple
   s::S
   o::O
 end
-FastRange{T}(f::F, s::S) where {T<:Union{Int,StaticInt},F,S} = FastRange{T,Zero,S,F}(Zero(), s, f)
+FastRange{T}(f::F, s::S) where {T<:IntegerTypes,F,S} = FastRange{T,Zero,S,F}(Zero(), s, f)
 FastRange{T}(f::F, s::S, o::O) where {T,F,S,O} = FastRange{T,F,S,O}(f, s, o)
 
 FastRange{T}(f::F, s::S) where {T<:FloatingTypes,F,S} = FastRange{T,F,S,Int}(f, s, 0)
@@ -253,7 +253,7 @@ struct NoStrides end
   FastRange{T}(getfield(r, :f), getfield(r, :s), o)
 
 
-@inline function zero_offsets(fr::FastRange{T,Zero}) where {T<:Union{Int,StaticInt}}
+@inline function zero_offsets(fr::FastRange{T,Zero}) where {T<:IntegerTypes}
   s = getfield(fr, :s)
   FastRange{T}(Zero(), s, getfield(fr, :o) + s)
 end

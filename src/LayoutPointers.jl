@@ -2,7 +2,7 @@ module LayoutPointers
 
 using ArrayInterface, Static, LinearAlgebra
 using ArrayInterface: CPUPointer, StrideIndex, offsets
-using SIMDTypes: Bit, FloatingTypes
+using SIMDTypes: Bit, FloatingTypes, IntegerTypesHW
 using Static: Zero, One
 using ArrayInterface:
   contiguous_axis,
@@ -19,6 +19,7 @@ using ManualMemory: preserve_buffer, offsetsize
 
 export stridedpointer
 
+const IntegerTypes = Union{IntegerTypesHW, StaticInt}
 
 @inline _map(f::F, x::Tuple{}) where {F} = ()
 @inline _map(f::F, x::Tuple{X1}) where {F,X1} = (f(getfield(x, 1, false)),)
@@ -53,8 +54,8 @@ abstract type AbstractStridedPointer{
   C,
   B,
   R,
-  X<:Tuple{Vararg{Union{Int,StaticInt},N}},
-  O<:Tuple{Vararg{Union{Int,StaticInt},N}},
+  X<:Tuple{Vararg{IntegerTypes,N}},
+  O<:Tuple{Vararg{IntegerTypes,N}},
 } end
 
 
