@@ -1,7 +1,7 @@
 using LayoutPointers, ArrayInterface, Aqua, Test
 
 @testset "LayoutPointers.jl" begin
-  Aqua.test_all(LayoutPointers)
+  Aqua.test_all(LayoutPointers, deps_compat = VERSION <= v"1.8" || VERSION.prerelease[1] != "DEV")
 
   println("Grouped Strided Pointers")
   @time @testset "Grouped Strided Pointers" begin
