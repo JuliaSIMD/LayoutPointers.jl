@@ -1,4 +1,4 @@
-using LayoutPointers, ArrayInterface, Aqua, Test
+using LayoutPointers, ArrayInterface, ArrayInterfaceOffsetArrays, Aqua, Test
 
 @testset "LayoutPointers.jl" begin
   Aqua.test_all(LayoutPointers, deps_compat = VERSION <= v"1.8" || VERSION.prerelease[1] != "DEV")
@@ -12,6 +12,7 @@ using LayoutPointers, ArrayInterface, Aqua, Test
     struct SizedWrapper{M,N,T,AT<:AbstractMatrix{T}} <: AbstractMatrix{T}
       A::AT
     end
+    ArrayInterface.is_forwarding_wrapper(::Type{<:SizedWrapper}) = true
     SizedWrapper{M,N}(A::AT) where {M,N,T,AT<:AbstractMatrix{T}} = SizedWrapper{M,N,T,AT}(A)
     Base.size(::SizedWrapper{M,N}) where {M,N} = (M, N)
     Base.getindex(A::SizedWrapper, i...) = getindex(parent(A), i...)
