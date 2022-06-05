@@ -2,6 +2,8 @@ module LayoutPointers
 
 using ArrayInterface, Static, LinearAlgebra
 using ArrayInterface: CPUPointer, StrideIndex, offsets
+using ArrayInterfaceOffsetArrays
+using ArrayInterfaceStaticArrays
 using SIMDTypes: Bit, FloatingTypes, IntegerTypesHW
 using Static: Zero, One
 using ArrayInterface:
