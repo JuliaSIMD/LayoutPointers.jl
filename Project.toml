@@ -1,7 +1,7 @@
 name = "LayoutPointers"
 uuid = "10f19ff3-798f-405d-979b-55457f8fc047"
 authors = ["chriselrod <elrodc@gmail.com> and contributors"]
-version = "0.1.9"
+version = "0.1.10"
 
 [deps]
 ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
@@ -13,12 +13,12 @@ SIMDTypes = "94e857df-77ce-4151-89e5-788b33177be4"
 Static = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
 
 [compat]
-ArrayInterface = "3.1.24, 4, 5, 6"
+ArrayInterface = "6"
 ArrayInterfaceOffsetArrays = "0.1"
 ArrayInterfaceStaticArrays = "0.1"
 ManualMemory = "0.1.6"
 SIMDTypes = "0.1"
-Static = "0.3, 0.4, 0.5, 0.6"
+Static = "0.7"
 julia = "1.6"
 
 [extras]
