@@ -13,6 +13,7 @@ end
 
 @inline bytestrides(A::AbstractArray{T}) where {T} = mulsizeof(T, ArrayInterface.strides(A))
 
+@inline memory_reference(A::NTuple) = memory_reference(ArrayInterface.device(A), A)
 @inline memory_reference(A::AbstractArray) = memory_reference(ArrayInterface.device(A), A)
 @inline memory_reference(A::BitArray) = Base.unsafe_convert(Ptr{Bit}, A.chunks), A.chunks
 @inline memory_reference(::CPUPointer, A) = pointer(A), preserve_buffer(A)
@@ -95,8 +96,11 @@ end
 end
 @inline function stridedpointer_preserve(A::AbstractArray)
   p, r = memory_reference(A)
-
   stridedpointer(p, bytestrideindex(A), ArrayInterface.contiguous_batch_size(A)), r
+end
+@inline function stridedpointer_preserve(t::NTuple)
+  p, r = memory_reference(t)
+  stridedpointer(p, ArrayInterface.StrideIndex{1,(1,),1}((static(sizeof(eltype(t))),), (static(1),)), static(0)), r
 end
 @inline val_stride_rank(::AbstractStridedPointer{T,N,C,B,R}) where {T,N,C,B,R} = Val{R}()
 @generated val_dense_dims(::AbstractStridedPointer{T,N}) where {T,N} =
