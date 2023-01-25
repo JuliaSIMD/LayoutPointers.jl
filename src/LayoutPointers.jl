@@ -1,4 +1,8 @@
 module LayoutPointers
+if isdefined(Base, :Experimental) &&
+   isdefined(Base.Experimental, Symbol("@max_methods"))
+    @eval Base.Experimental.@max_methods 1
+end
 
 using ArrayInterface, Static, LinearAlgebra
 using ArrayInterface: CPUPointer, StrideIndex, offsets
