@@ -4,13 +4,11 @@ if isdefined(Base, :Experimental) &&
     @eval Base.Experimental.@max_methods 1
 end
 
-using ArrayInterface, Static, LinearAlgebra
-using ArrayInterface: CPUPointer, StrideIndex, offsets
-using ArrayInterfaceOffsetArrays
-using ArrayInterfaceStaticArrays
+using Static, LinearAlgebra
+using StaticArrayInterface: CPUPointer, StrideIndex, offsets
 using SIMDTypes: Bit, FloatingTypes, IntegerTypesHW
 using Static: Zero, One
-using ArrayInterface:
+using StaticArrayInterface:
   contiguous_axis,
   contiguous_axis_indicator,
   contiguous_batch_size,
