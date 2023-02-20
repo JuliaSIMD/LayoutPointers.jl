@@ -35,7 +35,7 @@ end
 @inline val_dense_dims(::DensePointerWrapper{D}) where {D} = Val{D}()
 
 @inline Base.pointer(A::DensePointerWrapper) = pointer(getfield(A, :p))
-@inline ArrayInterface.StrideIndex(sptr::DensePointerWrapper) =
+@inline StaticArrayInterface.StrideIndex(sptr::DensePointerWrapper) =
   StrideIndex(getfield(sptr, :p))
 
 
@@ -45,7 +45,7 @@ end
   DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
 
 @inline _gp_strides(x::StrideIndex) = getfield(x, :strides)
-@inline _gp_strides(x) = strides(x)
+@inline _gp_strides(x) = static_strides(x)
 @inline _gp_strides(::NoStrides) = NoStrides()
 grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((), ())
 
