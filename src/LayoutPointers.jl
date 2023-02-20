@@ -1,11 +1,9 @@
 module LayoutPointers
-if isdefined(Base, :Experimental) &&
-   isdefined(Base.Experimental, Symbol("@max_methods"))
-    @eval Base.Experimental.@max_methods 1
+if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@max_methods"))
+  @eval Base.Experimental.@max_methods 1
 end
 
-using Static, LinearAlgebra
-using StaticArrayInterface: CPUPointer, StrideIndex, offsets
+using Static, LinearAlgebra, StaticArrayInterface
 using SIMDTypes: Bit, FloatingTypes, IntegerTypesHW
 using Static: Zero, One
 using StaticArrayInterface:
@@ -18,12 +16,15 @@ using StaticArrayInterface:
   CPUTuple,
   static_first,
   static_step,
-  strides
+  strides,
+  CPUPointer,
+  StrideIndex,
+  offsets
 using ManualMemory: preserve_buffer, offsetsize
 
 export stridedpointer
 
-const IntegerTypes = Union{IntegerTypesHW, StaticInt}
+const IntegerTypes = Union{IntegerTypesHW,StaticInt}
 
 @inline _map(f::F, x::Tuple{}) where {F} = ()
 @inline _map(f::F, x::Tuple{X1}) where {F,X1} = (f(getfield(x, 1, false)),)

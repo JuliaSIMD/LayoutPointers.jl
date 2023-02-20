@@ -35,7 +35,7 @@ end
 @inline val_dense_dims(::DensePointerWrapper{D}) where {D} = Val{D}()
 
 @inline Base.pointer(A::DensePointerWrapper) = pointer(getfield(A, :p))
-@inline ArrayInterface.StrideIndex(sptr::DensePointerWrapper) =
+@inline StaticArrayInterface.StrideIndex(sptr::DensePointerWrapper) =
   StrideIndex(getfield(sptr, :p))
 
 

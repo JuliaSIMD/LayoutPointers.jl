@@ -1,4 +1,31 @@
-using LayoutPointers, ArrayInterface, ArrayInterfaceOffsetArrays, Aqua, Test
+using LayoutPointers, StaticArrayInterface, Aqua, Test
+struct SizedWrapper{M,N,T,AT<:AbstractMatrix{T}} <: AbstractMatrix{T}
+  A::AT
+end
+StaticArrayInterface.is_forwarding_wrapper(::Type{<:SizedWrapper}) = true
+SizedWrapper{M,N}(A::AT) where {M,N,T,AT<:AbstractMatrix{T}} = SizedWrapper{M,N,T,AT}(A)
+Base.size(::SizedWrapper{M,N}) where {M,N} = (M, N)
+Base.getindex(A::SizedWrapper, i...) = getindex(parent(A), i...)
+Base.parent(dw::SizedWrapper) = dw.A
+StaticArrayInterface.parent_type(::Type{SizedWrapper{M,N,T,AT}}) where {M,N,T,AT} = AT
+LayoutPointers.memory_reference(dw::SizedWrapper) =
+  LayoutPointers.memory_reference(parent(dw))
+StaticArrayInterface.contiguous_axis(dw::SizedWrapper) =
+  LayoutPointers.contiguous_axis(parent(dw))
+StaticArrayInterface.contiguous_batch_size(dw::SizedWrapper) =
+  LayoutPointers.contiguous_batch_size(parent(dw))
+LayoutPointers.val_stride_rank(dw::SizedWrapper) =
+  LayoutPointers.val_stride_rank(parent(dw))
+function StaticArrayInterface.static_strides(dw::SizedWrapper{M,N,T}) where {M,N,T}
+  if LayoutPointers.val_stride_rank(dw) === Val((1, 2))
+    return LayoutPointers.One(), LayoutPointers.StaticInt{M}()
+  else#if LayoutPointers.val_stride_rank(dw) === Val((2,1))
+    return LayoutPointers.StaticInt{N}(), LayoutPointers.One()
+  end
+end
+StaticArrayInterface.offsets(dw::SizedWrapper) = LayoutPointers.offsets(parent(dw))
+LayoutPointers.val_dense_dims(dw::SizedWrapper{T,N}) where {T,N} =
+  LayoutPointers.val_dense_dims(parent(dw))
 
 @testset "LayoutPointers.jl" begin
   Aqua.test_all(LayoutPointers)
@@ -9,33 +36,6 @@ using LayoutPointers, ArrayInterface, ArrayInterfaceOffsetArrays, Aqua, Test
     A = Matrix{Float64}(undef, M, K)
     B = Matrix{Float64}(undef, K, N)
     C = Matrix{Float64}(undef, M, N)
-    struct SizedWrapper{M,N,T,AT<:AbstractMatrix{T}} <: AbstractMatrix{T}
-      A::AT
-    end
-    ArrayInterface.is_forwarding_wrapper(::Type{<:SizedWrapper}) = true
-    SizedWrapper{M,N}(A::AT) where {M,N,T,AT<:AbstractMatrix{T}} = SizedWrapper{M,N,T,AT}(A)
-    Base.size(::SizedWrapper{M,N}) where {M,N} = (M, N)
-    Base.getindex(A::SizedWrapper, i...) = getindex(parent(A), i...)
-    Base.parent(dw::SizedWrapper) = dw.A
-    ArrayInterface.parent_type(::Type{SizedWrapper{M,N,T,AT}}) where {M,N,T,AT} = AT
-    LayoutPointers.memory_reference(dw::SizedWrapper) =
-      LayoutPointers.memory_reference(parent(dw))
-    ArrayInterface.contiguous_axis(dw::SizedWrapper) =
-      LayoutPointers.contiguous_axis(parent(dw))
-    ArrayInterface.contiguous_batch_size(dw::SizedWrapper) =
-      LayoutPointers.contiguous_batch_size(parent(dw))
-    LayoutPointers.val_stride_rank(dw::SizedWrapper) =
-      LayoutPointers.val_stride_rank(parent(dw))
-    function ArrayInterface.strides(dw::SizedWrapper{M,N,T}) where {M,N,T}
-      if LayoutPointers.val_stride_rank(dw) === Val((1, 2))
-        return LayoutPointers.One(), LayoutPointers.StaticInt{M}()
-      else#if LayoutPointers.val_stride_rank(dw) === Val((2,1))
-        return LayoutPointers.StaticInt{N}(), LayoutPointers.One()
-      end
-    end
-    ArrayInterface.offsets(dw::SizedWrapper) = LayoutPointers.offsets(parent(dw))
-    LayoutPointers.val_dense_dims(dw::SizedWrapper{T,N}) where {T,N} =
-      LayoutPointers.val_dense_dims(parent(dw))
 
     GC.@preserve A B C begin
       fs = (false, true)#[identity, adjoint]
