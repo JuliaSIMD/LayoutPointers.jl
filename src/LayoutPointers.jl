@@ -16,7 +16,7 @@ using StaticArrayInterface:
   CPUTuple,
   static_first,
   static_step,
-  strides,
+  static_strides,
   CPUPointer,
   StrideIndex,
   offsets
