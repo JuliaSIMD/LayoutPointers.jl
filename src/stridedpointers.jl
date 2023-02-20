@@ -12,7 +12,7 @@ end
   (mulsizeof(T, getfield(x, 1, false)), mulsizeof(T, Base.tail(x))...)
 
 @inline bytestrides(A::AbstractArray{T}) where {T} =
-  mulsizeof(T, StaticArrayInterface.strides(A))
+  mulsizeof(T, StaticArrayInterface.static_strides(A))
 
 @inline memory_reference(A::NTuple) = memory_reference(StaticArrayInterface.device(A), A)
 @inline memory_reference(A::AbstractArray) =
@@ -43,7 +43,7 @@ end
   pA = parent(A)
   offset = StaticArrayInterface.reduce_tup(
     +,
-    _map(*, _map(ind_diff, A.indices, offsets(pA)), strides(pA)),
+    _map(*, _map(ind_diff, A.indices, offsets(pA)), static_strides(pA)),
   )
   p + sizeof(eltype(A)) * offset, m
 end
@@ -133,7 +133,7 @@ end
 )
 @inline zstridedpointer(A) = zero_offsets(stridedpointer(A))
 @inline function zstridedpointer_preserve(A::AbstractArray{T,N}) where {T,N}
-  strd = mulsizeof(T, StaticArrayInterface.strides(A))
+  strd = mulsizeof(T, StaticArrayInterface.static_strides(A))
   si = StrideIndex{N,known(stride_rank(A)),Int(contiguous_axis(A))}(
     strd,
     zerotuple(Val(N)),
@@ -155,7 +155,7 @@ Base.unsafe_convert(::Type{Ptr{T}}, ptr::AbstractStridedPointer{T}) where {T} = 
 end
 
 @inline dynamic_offsets(si::StrideIndex{N,R,C}) where {N,R,C} =
-  StrideIndex{N,R,C}(strides(si), _map(Int, offsets(si)))
+  StrideIndex{N,R,C}(static_strides(si), _map(Int, offsets(si)))
 struct StridedBitPointer{N,C,B,R,X,O} <: AbstractStridedPointer{Bit,N,C,B,R,X,O}
   p::Ptr{Bit}
   si::StrideIndex{N,R,C,X,O}
@@ -191,14 +191,14 @@ end
   ptr::Ptr,
   offset::Tuple,
 ) where {T,N,C,B,R}
-  si = StrideIndex{N,R,C}(strides(sptr), offset)
+  si = StrideIndex{N,R,C}(static_strides(sptr), offset)
   stridedpointer(ptr, si, contiguous_batch_size(sptr))
 end
 @inline function similar_no_offset(
   sptr::AbstractStridedPointer{T,N,C,B,R},
   ptr::Ptr,
 ) where {T,N,C,B,R}
-  si = StrideIndex{N,R,C}(strides(sptr), zerotuple(Val(N)))
+  si = StrideIndex{N,R,C}(static_strides(sptr), zerotuple(Val(N)))
   stridedpointer(ptr, si, contiguous_batch_size(sptr))
 end
 
@@ -211,7 +211,7 @@ end
 # s += A[i,i]
 # end
 # first access is at zero-based index
-# (first(6:16) - StaticArrayInterface.offsets(a)[1]) * StaticArrayInterface.strides(A)[1] + (first(6:16) - StaticArrayInterface.offsets(a)[2]) * StaticArrayInterface.strides(A)[2]
+# (first(6:16) - StaticArrayInterface.offsets(a)[1]) * StaticArrayInterface.static_strides(A)[1] + (first(6:16) - StaticArrayInterface.offsets(a)[2]) * StaticArrayInterface.static_strides(A)[2]
 # equal to
 #  (6 - 6)*1 + (6 - 5)*10 = 10
 # i.e., the 1-based index 11.

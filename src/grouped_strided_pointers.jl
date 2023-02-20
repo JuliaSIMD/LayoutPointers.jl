@@ -45,7 +45,7 @@ end
   DensePointerWrapper{D,T,N,C,B,R,X,O,P}(sp)
 
 @inline _gp_strides(x::StrideIndex) = getfield(x, :strides)
-@inline _gp_strides(x) = strides(x)
+@inline _gp_strides(x) = static_strides(x)
 @inline _gp_strides(::NoStrides) = NoStrides()
 grouped_strided_pointer(::Tuple{}, ::Val{()}) = ((), ())
 
