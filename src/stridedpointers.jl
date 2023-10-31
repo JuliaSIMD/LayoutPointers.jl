@@ -49,7 +49,8 @@ end
 end
 @inline function memory_reference(::CPUTuple, A)
   r = Ref(A)
-  Base.unsafe_convert(Ptr{eltype(A)}, Base.pointer_from_objref(r)), r
+  T = eltype(T)
+  Base.unsafe_convert(Ptr{T}, r), r
 end
 @inline function memory_reference(::StaticArrayInterface.CheckParent, A)
   P = parent(A)
