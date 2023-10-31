@@ -13,6 +13,7 @@ StaticArrayInterface = "0d7ed370-da01-4f52-bd93-41d350b8b718"
 
 [compat]
 ArrayInterface = "7"
+LinearAlgebra = "1"
 ManualMemory = "0.1.6"
 SIMDTypes = "0.1"
 Static = "0.8"
