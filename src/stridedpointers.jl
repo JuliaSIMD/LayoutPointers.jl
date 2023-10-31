@@ -17,7 +17,7 @@ end
 @inline memory_reference(A::NTuple) = memory_reference(StaticArrayInterface.device(A), A)
 @inline memory_reference(A::AbstractArray) =
   memory_reference(StaticArrayInterface.device(A), A)
-@inline memory_reference(A::BitArray) = Base.unsafe_convert(Ptr{Bit}, A.chunks), A.chunks
+@inline memory_reference(A::BitArray) = Base.unsafe_convert(Ptr{Bit}, pointer(A.chunks)), A.chunks
 @inline memory_reference(::CPUPointer, A) = pointer(A), preserve_buffer(A)
 @inline memory_reference(
   ::CPUPointer,
