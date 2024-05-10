@@ -18,13 +18,11 @@ ManualMemory = "0.1.6"
 SIMDTypes = "0.1"
 Static = "0.8"
 StaticArrayInterface = "1"
+Test = "1.11.0"
 julia = "1.6"
 
 [extras]
-Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
-ArrayInterface = "4fba245c-0d91-5ea0-9b3e-6abc04ee57a9"
-ArrayInterfaceOffsetArrays = "015c0d05-e682-4f19-8f0a-679ce4c54826"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "ArrayInterface", "Test"]
+test = ["Test"]
