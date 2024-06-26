@@ -17,7 +17,8 @@ end
 @inline memory_reference(A::NTuple) = memory_reference(StaticArrayInterface.device(A), A)
 @inline memory_reference(A::AbstractArray) =
   memory_reference(StaticArrayInterface.device(A), A)
-@inline memory_reference(A::BitArray) = Base.unsafe_convert(Ptr{Bit}, pointer(A.chunks)), A.chunks
+@inline memory_reference(A::BitArray) =
+  Base.unsafe_convert(Ptr{Bit}, pointer(A.chunks)), A.chunks
 @inline memory_reference(::CPUPointer, A) = pointer(A), preserve_buffer(A)
 @inline memory_reference(
   ::CPUPointer,
@@ -45,7 +46,11 @@ end
     +,
     _map(*, _map(ind_diff, A.indices, offsets(pA)), static_strides(pA)),
   )
-  p + sizeof(eltype(A)) * offset, m
+  if offset isa Zero
+    p, m
+  else
+    p + sizeof(eltype(A)) * offset, m
+  end
 end
 @inline function memory_reference(::CPUTuple, A)
   r = Ref(A)
